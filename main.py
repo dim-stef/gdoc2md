@@ -19,11 +19,10 @@ DOCUMENT_ID = '1XkBuOBcy4g69mRGiHzLAFff_qDwadPKogV3E-lnNcgc'
 # '1XkBuOBcy4g69mRGiHzLAFff_qDwadPKogV3E-lnNcgc'
 
 def is_heading(paragraph):
-
-    if "HEADING" in paragraph.get('paragraphStyle').get('namedStyleType'):
-        print("in")
-        return True
-    return False
+    named_style_type = paragraph.get('paragraphStyle').get('namedStyleType')
+    if 'HEADING' in named_style_type:
+        return int(re.search(r'[-+]?[0-9]+', named_style_type)[0])
+    return 0
 
 
 def main():
@@ -56,15 +55,24 @@ def main():
     document.get('inlineObjects')
     mdFile = MdUtils(file_name='Example_Markdown', title=document.get('title'))
 
-    for item in document['body']['content']:
+    for (index, item) in enumerate(document['body']['content']):
         if item.get('paragraph'):
             bullet_list = []
             if item.get('paragraph').get('bullet'):
+                # TODO
+                # nested bullets is handle by the nestingLevel property
                 bullet_point = ''
                 for element in item.get('paragraph').get('elements'):
                     content = element.get('textRun').get('content')
                     bullet_point = bullet_point + content
-                mdFile.new_line('- ' + bullet_point.rstrip('\n').strip())
+                #mdFile.new_line('- ' + bullet_point.rstrip('\n').strip())
+                mdFile.write('- ' + bullet_point)
+
+                # check next item, if it is not a bullet point then add a new line so the next item does not
+                # collide with the last bullet point
+                if document['body']['content'][index + 1]:
+                    if not document['body']['content'][index + 1].get('paragraph').get('bullet'):
+                        mdFile.new_line()
                 '''for element in item.get('paragraph').get('elements'):
                     content = element.get('textRun').get('content')
                     bullet_list.append(content.rstrip('\n').strip())
@@ -86,13 +94,20 @@ def main():
                     if element.get('textRun'):
                         content = element.get('textRun').get('content')
 
-                        #  for now escaping all dots
-                        #  TODO instead of escaping all dots, escape literals like (N.) where N is any number
-                        content = re.sub(r'\.', '\.', content)
+                        #  escape starting strings like "n." where n is any number to prevent breaking md format
+                        for match in re.finditer(r'^[-+]?[0-9]+.', content):
+                            content = content[:match.start()+1] + '\\' + content[match.start()+1:]
 
-                        if content == '\n':
+                        # managing some edge cases for now
+                        # until a solution is found for every case
+
+                        if content.replace(' ', '') == '\n':  # using strip() removes \n as well
                             mdFile.new_line()
                             continue
+                        if content == ' ':
+                            mdFile.write(' ')
+                            continue
+
                         try:
                             is_bold = element.get('textRun').get('textStyle').get('bold')
                             is_italic = element.get('textRun').get('textStyle').get('italic')
@@ -110,10 +125,14 @@ def main():
                         if '\n' in content:
                             add_new_line = True
 
-                        # find if text starts with space or tab
+                        # find if text starts or ends with space or tab
                         starts_with_space = False
+                        ends_with_space = False
+
                         if re.match(r'\s', content):
                             starts_with_space = True
+                        if content.endswith(' '):
+                            ends_with_space = True
 
                         # add the white space before any formatting to prevent breaking the format
                         if starts_with_space:
@@ -125,14 +144,17 @@ def main():
                         magnitude = element.get('textRun').get('textStyle', {}).get('fontSize', {}).get('magnitude') or \
                             element.get('textRun').get('fontSize', {}).get('magnitude')
                         if _is_heading:
-                            mdFile.new_header(level=2, title=content.rstrip('\n').lstrip(), style='setext',
+                            print(_is_heading)
+                            mdFile.new_header(level=_is_heading, title=content.rstrip('\n').strip(),
                                               add_table_of_contents='n')
                         # else just write plain text
                         else:
-                            mdFile.write(content.rstrip('\n').lstrip(),
+                            mdFile.write(content.rstrip('\n').strip(),
                                          bold_italics_code=bold_italics_code)
 
                         # add them after all formatting
+                        if ends_with_space:
+                            mdFile.write(' ')
                         if add_new_line:
                             # alternatively use mdFile.write('\n') to add a completely new line
                             # mdFile.write('\\')
