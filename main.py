@@ -19,7 +19,9 @@ DOCUMENT_ID = '1XkBuOBcy4g69mRGiHzLAFff_qDwadPKogV3E-lnNcgc'
 # '1XkBuOBcy4g69mRGiHzLAFff_qDwadPKogV3E-lnNcgc'
 
 def is_heading(paragraph):
+
     if "HEADING" in paragraph.get('paragraphStyle').get('namedStyleType'):
+        print("in")
         return True
     return False
 
@@ -58,10 +60,15 @@ def main():
         if item.get('paragraph'):
             bullet_list = []
             if item.get('paragraph').get('bullet'):
+                bullet_point = ''
                 for element in item.get('paragraph').get('elements'):
                     content = element.get('textRun').get('content')
+                    bullet_point = bullet_point + content
+                mdFile.new_line('- ' + bullet_point.rstrip('\n').strip())
+                '''for element in item.get('paragraph').get('elements'):
+                    content = element.get('textRun').get('content')
                     bullet_list.append(content.rstrip('\n').strip())
-                    mdFile.new_list(bullet_list)
+                    mdFile.new_list(bullet_list)'''
             else:
                 for element in item.get('paragraph').get('elements'):
                     # search for images
@@ -78,6 +85,11 @@ def main():
                     # search for text elements
                     if element.get('textRun'):
                         content = element.get('textRun').get('content')
+
+                        #  for now escaping all dots
+                        #  TODO instead of escaping all dots, escape literals like (N.) where N is any number
+                        content = re.sub(r'\.', '\.', content)
+
                         if content == '\n':
                             mdFile.new_line()
                             continue
@@ -110,8 +122,9 @@ def main():
                         # if these conditions meet we should transform the text to a header
                         # google docs is weird with its results so we have to check a lot of conditions
                         _is_heading = is_heading(item.get('paragraph'))
-                        if element.get('textRun').get('textStyle', {}).get('fontSize') or \
-                                element.get('textRun').get('fontSize') or _is_heading:
+                        magnitude = element.get('textRun').get('textStyle', {}).get('fontSize', {}).get('magnitude') or \
+                            element.get('textRun').get('fontSize', {}).get('magnitude')
+                        if _is_heading:
                             mdFile.new_header(level=2, title=content.rstrip('\n').lstrip(), style='setext',
                                               add_table_of_contents='n')
                         # else just write plain text
@@ -127,12 +140,12 @@ def main():
             # add a space between each element
             spacing = item.get('paragraph').get('paragraphStyle').get('lineSpacing')
             if spacing:
-                print((int(spacing) // 100))
                 mdFile.write((int(spacing) // 100) * '\n')
             else:
-                mdFile.new_line()
+                pass
+                #mdFile.new_line()
                 # mdFile.write('\n')
-    mdFile.new_table_of_contents(table_title='Contents', depth=2)
+    #mdFile.new_table_of_contents(table_title='Contents', depth=2)
     mdFile.create_md_file()
     print('The title of the document is: {}'.format(document.get('title')))
 
