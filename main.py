@@ -16,7 +16,7 @@ DOCUMENT_ID = '1XkBuOBcy4g69mRGiHzLAFff_qDwadPKogV3E-lnNcgc'
 
 # '1L1vU0YWf1PjVMc7LL_nFTA0lApuC4hlVgjztXQ-MLSU'
 # '16U5sLssOMuG8X8GF-qIo7VXW9BQJ_E0QIz6C5CzP7t0'
-# '1XkBuOBcy4g69mRGiHzLAFff_qDwadPKogV3E-lnNcgc'
+# '1XkBuOBcy4g69mRGiHzLAFff_qDwadPKogV3E-lnNcgc' primary file
 
 def is_heading(paragraph):
     named_style_type = paragraph.get('paragraphStyle').get('namedStyleType')
@@ -26,9 +26,6 @@ def is_heading(paragraph):
 
 
 def main():
-    """Shows basic usage of the Docs API.
-    Prints the title of a sample document.
-    """
     creds = None
     # The file token.pickle stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
@@ -59,14 +56,17 @@ def main():
         if item.get('paragraph'):
             bullet_list = []
             if item.get('paragraph').get('bullet'):
-                # TODO
-                # nested bullets is handle by the nestingLevel property
                 bullet_point = ''
                 for element in item.get('paragraph').get('elements'):
                     content = element.get('textRun').get('content')
                     bullet_point = bullet_point + content
-                #mdFile.new_line('- ' + bullet_point.rstrip('\n').strip())
-                mdFile.write('- ' + bullet_point)
+
+                # apply 2 spaces per nesting level
+                nesting_level = item.get('paragraph').get('bullet').get('nestingLevel')
+                spacing = ''
+                if nesting_level:
+                    spacing = (int(nesting_level)) * 2 * ' '
+                mdFile.write(spacing + '- ' + bullet_point)
 
                 # check next item, if it is not a bullet point then add a new line so the next item does not
                 # collide with the last bullet point
@@ -95,7 +95,7 @@ def main():
                         content = element.get('textRun').get('content')
 
                         #  escape starting strings like "n." where n is any number to prevent breaking md format
-                        for match in re.finditer(r'^[-+]?[0-9]+.', content):
+                        for match in re.finditer(r'^[-+]?[0-9]+\.', content):
                             content = content[:match.start()+1] + '\\' + content[match.start()+1:]
 
                         # managing some edge cases for now
@@ -144,7 +144,6 @@ def main():
                         magnitude = element.get('textRun').get('textStyle', {}).get('fontSize', {}).get('magnitude') or \
                             element.get('textRun').get('fontSize', {}).get('magnitude')
                         if _is_heading:
-                            print(_is_heading)
                             mdFile.new_header(level=_is_heading, title=content.rstrip('\n').strip(),
                                               add_table_of_contents='n')
                         # else just write plain text
@@ -159,6 +158,8 @@ def main():
                             # alternatively use mdFile.write('\n') to add a completely new line
                             # mdFile.write('\\')
                             mdFile.write('\n')
+                            mdFile.new_line()
+
             # add a space between each element
             spacing = item.get('paragraph').get('paragraphStyle').get('lineSpacing')
             if spacing:
