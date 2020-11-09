@@ -1,4 +1,5 @@
 /venv
+/build
 credentials.json
 token.pickle
 Example_Markdown.md

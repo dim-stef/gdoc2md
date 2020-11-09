@@ -11,7 +11,7 @@ import re
 SCOPES = ['https://www.googleapis.com/auth/documents.readonly']
 
 # The ID of a sample document.
-DOCUMENT_ID = '1XkBuOBcy4g69mRGiHzLAFff_qDwadPKogV3E-lnNcgc'
+DOCUMENT_ID = '1tmL0EubuqixxzodpJYZoViTRALQd7Yx1dNWt2lFPPUw'
 
 
 # '1L1vU0YWf1PjVMc7LL_nFTA0lApuC4hlVgjztXQ-MLSU'
@@ -57,16 +57,23 @@ def main():
             bullet_list = []
             if item.get('paragraph').get('bullet'):
                 bullet_point = ''
+                # don't currently use this, until I understand how gdocs handles ordered lists
+                is_ordered = False
                 for element in item.get('paragraph').get('elements'):
-                    content = element.get('textRun').get('content')
-                    bullet_point = bullet_point + content
+                    if element.get('footnoteReference', {}).get('footnoteNumber'):
+                        # don't know why this exists, I just pass it to not break the script
+                        pass
+                    else:
+                        content = element.get('textRun').get('content')
+                        bullet_point = bullet_point + content
 
+                ordering_separator = f"{is_ordered} " if is_ordered else '- '
                 # apply 2 spaces per nesting level
                 nesting_level = item.get('paragraph').get('bullet').get('nestingLevel')
                 spacing = ''
                 if nesting_level:
                     spacing = (int(nesting_level)) * 2 * ' '
-                mdFile.write(spacing + '- ' + bullet_point)
+                mdFile.write(spacing + ordering_separator + bullet_point)
 
                 # check next item, if it is not a bullet point then add a new line so the next item does not
                 # collide with the last bullet point
