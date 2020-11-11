@@ -1,6 +1,7 @@
 from __future__ import print_function
 import pickle
 import os.path
+import urllib.request
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
@@ -11,7 +12,7 @@ import re
 SCOPES = ['https://www.googleapis.com/auth/documents.readonly']
 
 # The ID of a sample document.
-DOCUMENT_ID = '1tmL0EubuqixxzodpJYZoViTRALQd7Yx1dNWt2lFPPUw'
+DOCUMENT_ID = '1XkBuOBcy4g69mRGiHzLAFff_qDwadPKogV3E-lnNcgc'
 
 
 # '1L1vU0YWf1PjVMc7LL_nFTA0lApuC4hlVgjztXQ-MLSU'
@@ -21,7 +22,9 @@ DOCUMENT_ID = '1tmL0EubuqixxzodpJYZoViTRALQd7Yx1dNWt2lFPPUw'
 def is_heading(paragraph):
     named_style_type = paragraph.get('paragraphStyle').get('namedStyleType')
     if 'HEADING' in named_style_type:
-        return int(re.search(r'[-+]?[0-9]+', named_style_type)[0])
+        # m2r2 does not parses headers to paragraphs if there are different sized headers with the same content
+        # using this for now until I find an alternative
+        return 4#int(re.search(r'[-+]?[0-9]+', named_style_type)[0])
     return 0
 
 
@@ -92,14 +95,24 @@ def main():
                             get(element.get('inlineObjectElement').get('inlineObjectId'))
                         object_properties = inline_object.get('inlineObjectProperties').get('embeddedObject')
                         image_path = object_properties.get('imageProperties').get('contentUri')
-                        mdFile.new_line(mdFile.new_inline_image(text='image', path=image_path))
+                        urllib.request.urlretrieve(image_path,
+                                                   filename=f"{image_path.split('/')[-1]}.jpg")
+
+                        mdFile.new_line(mdFile.new_inline_image(text='image', path=f"/{image_path.split('/')[-1]}.jpg"))
 
                         # add an empty character to prevent image collision with text
                         mdFile.write(' ')
 
                     # search for text elements
                     if element.get('textRun'):
-                        content = element.get('textRun').get('content')
+                        text_run = element.get('textRun')
+                        is_section_link = True if text_run.get("textStyle", {}).get('link', {}).get('bookmarkId') or \
+                            text_run.get("textStyle", {}).get('link', {}).get('headingId') else False
+
+                        content = text_run.get('content')
+                        if is_section_link:
+                            link_to = content.replace(" ", "-").lower()
+                            content = f"[{content}](#{link_to})"
 
                         #  escape starting strings like "n." where n is any number to prevent breaking md format
                         for match in re.finditer(r'^[-+]?[0-9]+\.', content):
@@ -148,8 +161,6 @@ def main():
                         # if these conditions meet we should transform the text to a header
                         # google docs is weird with its results so we have to check a lot of conditions
                         _is_heading = is_heading(item.get('paragraph'))
-                        magnitude = element.get('textRun').get('textStyle', {}).get('fontSize', {}).get('magnitude') or \
-                            element.get('textRun').get('fontSize', {}).get('magnitude')
                         if _is_heading:
                             mdFile.new_header(level=_is_heading, title=content.rstrip('\n').strip(),
                                               add_table_of_contents='n')
